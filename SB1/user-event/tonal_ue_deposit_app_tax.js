@@ -2,13 +2,18 @@
  *@NApiVersion 2.1
  *@NScriptType UserEventScript
  */
-define(['N/search', 'N/record', './lib_retry_mechanism'], function (
-  search,
-  record,
-  libRetry,
-) {
+define([
+  'N/search',
+  'N/record',
+  './lib_retry_mechanism',
+  'N/runtime',
+], function (search, record, libRetry, runtime) {
   const afterSubmit = (context) => {
-    if (context.type === 'create') {
+    if (
+      context.type === 'create' &&
+      runtime.executionContext === 'RESTLET'
+    ) {
+      log.debug('runtime context', runtime.executionContext)
       let soId = context.newRecord.getValue({ fieldId: 'salesorder' })
       const invoices = taxInvoice(soId)
       if (invoices && invoices.length > 0) {

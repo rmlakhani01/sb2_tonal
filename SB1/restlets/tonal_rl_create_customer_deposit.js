@@ -2,28 +2,17 @@
  *@NApiVersion 2.1
  *@NScriptType Restlet
  */
-define(['N/task', 'N/record'], function (task, record) {
+define(['N/record'], function (record) {
   const _post = (context) => {
     log.debug('REQUEST', context)
     const data = extractData(context)
     const output = createCustomerDeposit(data)
-
-    // var scheduledTask = task.create({
-    //   taskType: task.TaskType.SCHEDULED_SCRIPT,
-    // })
-    // scheduledTask.scriptId = 1035
-    // scheduledTask.deploymentId = 'customdeploy1'
-    // scheduledTask.params = {
-    //   custscript_input: output,
-    // }
-    // scheduledTask.submit()
 
     log.debug('RESPONSE', output)
     return JSON.stringify(output)
   }
 
   const createCustomerDeposit = (data) => {
-    // log.debug('Input', data)
     const customerDeposit = record.create({
       type: record.Type.CUSTOMER_DEPOSIT,
       isDynamic: true,
@@ -149,6 +138,7 @@ define(['N/task', 'N/record'], function (task, record) {
       { currency: 'JPY', id: 10 },
       { currency: 'MYR', id: 11 },
       { currency: 'CHF', id: 12 },
+      { currency: 'MXN', id: 13 },
     ]
     return currencies.filter(
       (currency) => currency.currency === inputCurrency,
