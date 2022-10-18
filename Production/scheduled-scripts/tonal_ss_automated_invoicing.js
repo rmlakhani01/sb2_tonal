@@ -32,6 +32,7 @@ define(['N/search', 'N/record', 'N/runtime', 'N/task'], function (
             fieldId: 'trandate',
             value: new Date(order.trandate),
           })
+
           invoiceRecord.save()
         }
 
@@ -43,9 +44,10 @@ define(['N/search', 'N/record', 'N/runtime', 'N/task'], function (
           })
 
           let rescheduledTaskId = rescheduledTask.submit()
-          let rescheduledTaskStatus = _task.checkStatus({ taskId: rescheduledTaskId})
-          if (rescheduledTaskStatus === 'QUEUED')
-            break
+          let rescheduledTaskStatus = _task.checkStatus({
+            taskId: rescheduledTaskId,
+          })
+          if (rescheduledTaskStatus === 'QUEUED') break
         }
       }
     } catch (e) {
@@ -117,6 +119,7 @@ define(['N/search', 'N/record', 'N/runtime', 'N/task'], function (
 
     return pendingOrders
   }
+
   return {
     execute: execute,
   }

@@ -15,15 +15,31 @@ define([
     ) {
       log.debug('runtime context', runtime.executionContext)
       let soId = context.newRecord.getValue({ fieldId: 'salesorder' })
+      let fee = context.newRecord.getValue({
+        fieldId: 'custbody_payment_fee',
+      })
+      let memo = context.newRecord.getValue({ fieldId: 'memo' })
       const invoices = taxInvoice(soId)
       if (invoices && invoices.length > 0) {
         let recordObject = applyDeposit(
           invoices,
           context.newRecord.id,
         )
-        recordObject.isSuccess === true
-          ? updateCustomerDeposit(context.newRecord.id)
-          : libRetry.updateTransaction
+        if (
+          recordObject.isSuccess === true &&
+          recordObject.destinationRecordId
+        ) {
+          let recordObject = createJournalEntry(
+            memo,
+            fee,
+            context.newRecord.id,
+          )
+
+          if (recordObject.isSuccess === true)
+            updateCustomerDeposit(recordObject)
+          if (recordObject.isSuccess === false)
+            libRetry.updateTransaction(recordObject)
+        }
       }
 
       if (invoices && invoices.length === 0) {
@@ -51,15 +67,32 @@ define([
         let soId = context.newRecord.getValue({
           fieldId: 'salesorder',
         })
+        let fee = context.newRecord.getValue({
+          fieldId: 'custbody_payment_fee',
+        })
+        let memo = context.newRecord.getValue({ fieldId: 'memo' })
         const invoices = taxInvoice(soId)
         if (invoices && invoices.length > 0) {
           let recordObject = applyDeposit(
             invoices,
             context.newRecord.id,
           )
-          recordObject.isSuccess === true
-            ? updateCustomerDeposit(context.newRecord.id)
-            : libRetry.updateTransaction
+
+          if (
+            recordObject.isSuccess === true &&
+            recordObject.destinationRecordId
+          ) {
+            let recordObject = createJournalEntry(
+              memo,
+              fee,
+              context.newRecord.id,
+            )
+
+            if (recordObject.isSuccess === true)
+              updateCustomerDeposit(recordObject)
+            if (recordObject.isSuccess === false)
+              libRetry.updateTransaction(recordObject)
+          }
         }
 
         if (invoices && invoices.length === 0) {
@@ -80,6 +113,7 @@ define([
     }
   }
 
+  // get the existing invoice that is related to the sales order.
   const taxInvoice = (soId) => {
     const taxInvoices = []
     search
@@ -134,6 +168,7 @@ define([
     return taxInvoices
   }
 
+  // marks the invoice as applied.
   const applyDeposit = (invoices, customerDepositId) => {
     try {
       let recordObject = {}
@@ -188,11 +223,22 @@ define([
     }
   }
 
-  const updateCustomerDeposit = (custDepId) => {
+  // updates the record once the deposit application has been successfully applied.
+  const updateCustomerDeposit = (recordObject) => {
     let custDepRecord = record.load({
       type: record.Type.CUSTOMER_DEPOSIT,
-      id: custDepId,
+      id: recordObject.sourceRecordId,
     })
+
+    if (
+      recordObject.destinationRecordType === 'journalentry' &&
+      recordObject.destinationRecordId !== null
+    ) {
+      custDepRecord.setValue({
+        fieldId: 'custbody_merchant_fee_je_1',
+        value: recordObject.destinationRecordId,
+      })
+    }
 
     custDepRecord.setValue({
       fieldId: 'custbody_processed_dt',
@@ -207,6 +253,75 @@ define([
       value: null,
     })
     custDepRecord.save()
+  }
+
+  const createJournalEntry = (memo, feeAmount, custDepId) => {
+    try {
+      let recordObject = {}
+      let debitAccount = runtime
+        .getCurrentScript()
+        .getParameter({ name: 'custscript_deferred_affirm_account' })
+
+      let creditAccount = runtime
+        .getCurrentScript()
+        .getParameter({ name: 'custscript_affirm_account' })
+
+      let journalRecord = record.create({
+        type: record.Type.JOURNAL_ENTRY,
+        isDynamic: true,
+      })
+
+      journalRecord.setValue({ fieldId: 'approvalstatus', value: 2 })
+      journalRecord.setValue({ fieldId: 'subsidiary', value: 1 })
+      journalRecord.setValue({ fieldId: 'memo', value: memo })
+      journalRecord.insertLine({ sublistId: 'line', line: 0 })
+      journalRecord.setCurrentSublistValue({
+        sublistId: 'line',
+        fieldId: 'account',
+        value: debitAccount,
+      })
+      journalRecord.setCurrentSublistValue({
+        sublistId: 'line',
+        fieldId: 'debit',
+        value: feeAmount,
+      })
+      journalRecord.commitLine({ sublistId: 'line' })
+      journalRecord.insertLine({ sublistId: 'line', line: 1 })
+      journalRecord.setCurrentSublistValue({
+        sublistId: 'line',
+        fieldId: 'account',
+        value: creditAccount,
+      })
+      journalRecord.setCurrentSublistValue({
+        sublistId: 'line',
+        fieldId: 'credit',
+        value: feeAmount,
+      })
+      journalRecord.commitLine({ sublistId: 'line' })
+
+      let journalId = journalRecord.save()
+      if (journalId) {
+        recordObject.isSuccess = true
+        recordObject.sourceRecordType = record.Type.CUSTOMER_DEPOSIT
+        recordObject.sourceRecordId = custDepId
+        recordObject.destinationRecordType = record.Type.JOURNAL_ENTRY
+        recordObject.destinationRecordId = journalId
+      }
+      return recordObject
+    } catch (e) {
+      log.debug('exception caught')
+      let recordObject = {
+        isSuccess: false,
+        errors:
+          'Journal entry was not created successfully. Reason: ' +
+          e.message,
+        sourceRecordType: record.Type.CUSTOMER_DEPOSIT,
+        sourceRecordId: custDepId,
+        destinationRecordType: record.Type.JOURNAL_ENTRY,
+        destinationRecordId: null,
+      }
+      return recordObject
+    }
   }
 
   return {

@@ -3,6 +3,7 @@
  */
 define(['N/record'], function (record) {
   const updateTransaction = (recordObject) => {
+    log.debug('inside libRetry', recordObject)
     if (recordObject.sourceRecordType === 'salesorder') {
       let salesOrder = record.load({
         type: record.Type.SALES_ORDER,
@@ -20,8 +21,32 @@ define(['N/record'], function (record) {
       salesOrder.save()
     }
 
-    if (recordObject.sourceRecordType === 'customerdeposit') {
+    if (
+      recordObject.sourceRecordType === 'customerdeposit' &&
+      recordObject.destinationRecordType === 'depositapplication'
+    ) {
       log.debug('customerdeposit', recordObject)
+      let customerDeposit = record.load({
+        type: record.Type.CUSTOMER_DEPOSIT,
+        id: recordObject.sourceRecordId,
+      })
+
+      customerDeposit.setValue({
+        fieldId: 'custbody_processed_dt',
+        value: '',
+      })
+
+      customerDeposit.setValue({
+        fieldId: 'custbody_error_description',
+        value: '[' + new Date() + '] - ' + recordObject.errors,
+      })
+      customerDeposit.save()
+    }
+
+    if (
+      recordObject.sourceRecordType === 'customerdeposit' &&
+      recordObject.destinationRecordType === 'journalentry'
+    ) {
       let customerDeposit = record.load({
         type: record.Type.CUSTOMER_DEPOSIT,
         id: recordObject.sourceRecordId,
