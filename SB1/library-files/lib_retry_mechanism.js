@@ -63,6 +63,25 @@ define(['N/record'], function (record) {
       })
       customerDeposit.save()
     }
+
+    if (recordObject.sourceRecordType === 'itemfulfillment') {
+      let itemFulfillment = record.load({
+        type: record.Type.ITEM_FULFILLMENT,
+        id: recordObject.sourceRecordId,
+      })
+
+      itemFulfillment.setValue({
+        fieldId: 'custbody_error_description',
+        value: '[' + new Date() + '] - ' + recordObject.errors,
+      })
+
+      itemFulfillment.setValue({
+        fieldId: 'custbody_processed_dt',
+        value: '',
+      })
+
+      itemFulfillment.save()
+    }
   }
   return {
     updateTransaction: updateTransaction,

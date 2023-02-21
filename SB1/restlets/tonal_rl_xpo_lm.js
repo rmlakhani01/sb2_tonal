@@ -11,8 +11,8 @@ define(['N/search'], function (search) {
         context.destinationLocationID,
         context.originLocationID,
       )
-
       log.debug('transitDays', transitDays)
+
       let inputDate = context.shipDate
       if (!inputDate.includes('-')) {
         inputDate = parseStringToDate(inputDate)
@@ -47,7 +47,7 @@ define(['N/search'], function (search) {
       return {
         vendorEtaDate: etaDate,
         customerEtaDate: custEtaDate,
-        shipDate: inputDate
+        shipDate: inputDate,
       }
     } catch (error) {
       log.debug('error', error.message)
@@ -113,37 +113,42 @@ define(['N/search'], function (search) {
   }
 
   const calculateEtaDate = (shipDate, daysToAdd) => {
-    const etaDate = new Date(shipDate)
+    let etaDate = new Date(shipDate)
+    etaDate.setMinutes(
+      etaDate.getMinutes() + etaDate.getTimezoneOffset(),
+    )
 
-    // increments the business days
-    for (let i = 0; i != daysToAdd; i++) {
-      if (etaDate.getDay() === 6) {
-        etaDate.setDate(etaDate.getDate() + 2)
-      } else if (etaDate.getDay() === 0) {
-        etaDate.setDate(etaDate.getDate() + 1)
-      } else if (etaDate.getDay() === 5) {
-        etaDate.setDate(etaDate.getDate() + 3)
-      } else {
-        etaDate.setDate(etaDate.getDate() + 1)
+    for (let i = 0; i < daysToAdd; i++) {
+      switch (etaDate.getDay()) {
+        //Friday & Saturday
+        case 5:
+        case 6:
+          etaDate.setDate(etaDate.getDate() + 2)
+        default:
+          etaDate.setDate(etaDate.getDate() + 1)
       }
     }
 
     return `${etaDate.getFullYear()}-${
       etaDate.getMonth() + 1
-    }-${etaDate.getUTCDate()}`
+    }-${etaDate.getDate()}`
   }
 
   const calculateCustomerEtaDate = (etaDate, daysToProcess) => {
-    const customerEtaDate = new Date(etaDate)
-    for (let i = 0; i != daysToProcess; i += 1) {
-      if (customerEtaDate.getDay() === 6) {
-        customerEtaDate.setDate(customerEtaDate.getDate() + 2)
-      } else if (customerEtaDate.getDay() === 0) {
-        customerEtaDate.setDate(customerEtaDate.getDate() + 1)
-      } else if (customerEtaDate.getDay() === 5) {
-        customerEtaDate.setDate(customerEtaDate.getDate() + 3)
-      } else {
-        customerEtaDate.setDate(customerEtaDate.getDate() + 1)
+    let customerEtaDate = new Date(etaDate)
+    customerEtaDate.setMinutes(
+      customerEtaDate.getMinutes() +
+        customerEtaDate.getTimezoneOffset(),
+    )
+
+    for (let i = 0; i < daysToProcess; i++) {
+      switch (customerEtaDate.getDay()) {
+        // Friday & Saturday
+        case 5:
+        case 6:
+          customerEtaDate.setDate(customerEtaDate.getDate() + 2)
+        default:
+          customerEtaDate.setDate(customerEtaDate.getDate() + 1)
       }
     }
 
