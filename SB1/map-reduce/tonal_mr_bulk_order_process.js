@@ -3,8 +3,6 @@
  *@NScriptType MapReduceScript
  */
 define(['N/search', 'N/record'], function (search, record) {
-  // TODO: FIX BUG WITH CARRIER BEING SET
-
   const getInputData = () => {
     const bulkOrders = []
     search
@@ -56,6 +54,7 @@ define(['N/search', 'N/record'], function (search, record) {
     return bulkOrders
   }
 
+  // source all the data and group by order number.
   const map = (context) => {
     try {
       let headers, lines, filename, stgId
@@ -100,19 +99,24 @@ define(['N/search', 'N/record'], function (search, record) {
       )
       output.push(bulkId)
       orders.forEach((order) => {
+        let bulkSalesId, bulkSalesLines
         order = JSON.parse(order)
-        let bulkSalesId = populateBulkSalesOrder(
+        bulkSalesId = populateBulkSalesOrder(
           order,
           order.headers,
           bulkId.bulkId,
         )
-        let bulkSalesLines = populateBulkSalesOrderLines(
-          order,
-          order.headers,
-          order.lines,
-          bulkSalesId,
-        )
         output.push(bulkSalesId)
+
+        if (bulkSalesId.errors.length === 0) {
+          bulkSalesLines = populateBulkSalesOrderLines(
+            order,
+            order.headers,
+            order.lines,
+            bulkSalesId,
+          )
+        }
+
         output.push(bulkSalesLines)
         if (
           bulkSalesId.errors.length === 0 &&
@@ -157,15 +161,9 @@ define(['N/search', 'N/record'], function (search, record) {
     }
   }
 
-  const summarize = (context) => {
-    // var text = ''
-    // context.output.iterator().each((key, value) => {
-    //   log.debug('Key', key)
-    //   log.debug('Value', value)
-    //   return true
-    // })
-  }
+  const summarize = (context) => {}
 
+  // Source data from netsuite based on values provided from the staging record - Gilbert Only
   const normalizeGilbertHeaderData = (input) => {
     let header = {}
     for (const [key, value] of Object.entries(input)) {
@@ -173,7 +171,9 @@ define(['N/search', 'N/record'], function (search, record) {
       if (key.match('DATE')) header[key] = parseDateString(value)
 
       if (key.match('ORDER_NUMBER'))
-        header['LOCATION_ID'] = retrieveLocation(extractShipTo(value))
+        header['LOCATION_ID'] = retrieveLocation(
+          extractLocation(value),
+        )
 
       if (key.match('PICK_NUMBER')) {
         let tempValue = value.replace(/\D/g, '')
@@ -189,6 +189,7 @@ define(['N/search', 'N/record'], function (search, record) {
     return header
   }
 
+  // Source data from netsuite based on values provided from the staging record - Extron Only
   const normalizeExtronHeaderData = (input) => {
     try {
       let header = {}
@@ -207,7 +208,7 @@ define(['N/search', 'N/record'], function (search, record) {
         if (key.match('Order_Number')) {
           header['ORDER_NUMBER'] = value
           header['LOCATION_ID'] = retrieveLocation(
-            extractShipTo(value),
+            extractLocation(value),
           )
         }
 
@@ -243,14 +244,6 @@ define(['N/search', 'N/record'], function (search, record) {
     } catch (e) {
       log.debug('error - extron, line', e)
     }
-  }
-
-  const extractShipTo = (input) => {
-    var temp = input.split('-')
-    var shipTo = temp[temp.length - 1]
-    shipTo = shipTo.slice(4, 7) + '_' + shipTo.slice(7, 10)
-
-    return shipTo
   }
 
   const extractDate = (input) => {
@@ -533,20 +526,15 @@ define(['N/search', 'N/record'], function (search, record) {
         value: `${values['ORDER_NUMBER']}_${values['PICK_NUMBER']}`,
       })
 
-      if (values['SALES_ORDER_DETAILS'].length === 1) {
-        bulkSalesRec.setValue({
-          fieldId: 'custrecord_bo_so_sales_order',
-          value: values['SALES_ORDER_DETAILS'][0]['id'],
-        })
-      }
-
-      if (values['SALES_ORDER_DETAILS'].length === 0) {
-        errors.push({
-          stageRecordId: order.stgId,
-          errorMessage: 'SALES ORDER NOT FOUND',
-        })
-        return
-      }
+      values['SALES_ORDER_DETAILS'].length === 0
+        ? errors.push({
+            stageRecordId: order.stgId,
+            errorMessage: 'SALES ORDER NOT FOUND',
+          })
+        : bulkSalesRec.setValue({
+            fieldId: 'custrecord_bo_so_sales_order',
+            value: values['SALES_ORDER_DETAILS'][0]['id'],
+          })
 
       bulkSalesRec.setValue({
         fieldId: 'custrecord_bo_so_customer_order_no',
@@ -687,6 +675,16 @@ define(['N/search', 'N/record'], function (search, record) {
     } catch (e) {
       log.debug('ERROR - CHECK BULK ORDER', e)
     }
+  }
+
+  const extractLocation = (ORDER_NUMBER) => {
+    const BULK_PREFIX_POS = 4
+    let sections = ORDER_NUMBER.split('-')
+    return (
+      sections[1].slice(BULK_PREFIX_POS, BULK_PREFIX_POS + 3) +
+      '_' +
+      sections[1].slice(BULK_PREFIX_POS + 3, sections[1].length - 1)
+    )
   }
 
   return {

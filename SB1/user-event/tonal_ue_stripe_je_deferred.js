@@ -2,40 +2,51 @@
  *@NApiVersion 2.1
  *@NScriptType UserEventScript
  */
-define(['N/search', 'N/record'], function (search, record) {
+define(['N/search', 'N/record', 'N/runtime'], function (
+  search,
+  record,
+  runtime,
+) {
   const afterSubmit = (context) => {
     const depositRecord = context.newRecord
-    const depositDate = depositRecord.getValue({
-      fieldId: 'trandate',
-    })
-    const memo = depositRecord.getValue({ fieldId: 'memo' })
+    const testRun = depositRecord.getValue({ fieldId: 'custbody7' })
+    if (
+      runtime.executionContext ===
+        runtime.ContextType.USER_INTERFACE &&
+      testRun === true
+    ) {
+      const depositDate = depositRecord.getValue({
+        fieldId: 'trandate',
+      })
+      const memo = depositRecord.getValue({ fieldId: 'memo' })
 
-    const payments = extractPaymentDetails(depositRecord)
-    const transactionTypes = paymentTypes(payments)
-    const paymentTotals = computePaymentTotals(
-      payments,
-      transactionTypes,
-    )
+      const payments = extractPaymentDetails(depositRecord)
+      const transactionTypes = paymentTypes(payments)
+      const paymentTotals = computePaymentTotals(
+        payments,
+        transactionTypes,
+      )
 
-    const cashBackPayments = extractCashBackDetails(depositRecord)
-    const cashBackTotals = computeCashbackTotals(cashBackPayments)
+      const cashBackPayments = extractCashBackDetails(depositRecord)
+      const cashBackTotals = computeCashbackTotals(cashBackPayments)
 
-    const totalNumberOfPayments = paymentTotals.reduce(
-      (acc, payment) => acc + payment.numberOfRecords,
-      0,
-    )
-    let stripeFee = (1 / totalNumberOfPayments) * cashBackTotals
-    log.debug('Stripe Fee', stripeFee)
+      const totalNumberOfPayments = paymentTotals.reduce(
+        (acc, payment) => acc + payment.numberOfRecords,
+        0,
+      )
+      let stripeFee = (1 / totalNumberOfPayments) * cashBackTotals
+      log.debug('Stripe Fee', stripeFee)
 
-    let customerDeposits = paymentTotals.filter(
-      (payment) => payment.type === 'CustDep',
-    )
+      let customerDeposits = paymentTotals.filter(
+        (payment) => payment.type === 'CustDep',
+      )
 
-    generateStripeJE(customerDeposits, stripeFee, depositDate, memo)
+      generateStripeJE(customerDeposits, stripeFee, depositDate, memo)
 
-    log.debug('customerDeposits', customerDeposits)
-    // log.debug('Payment Totals', paymentTotals)
-    log.debug('Cash Back Totals', cashBackTotals)
+      log.debug('customerDeposits', customerDeposits)
+      // log.debug('Payment Totals', paymentTotals)
+      log.debug('Cash Back Totals', cashBackTotals)
+    }
   }
 
   const extractPaymentDetails = (depositRecord) => {
@@ -169,7 +180,7 @@ define(['N/search', 'N/record'], function (search, record) {
     let data = customerDeposits[0].details
     data.forEach((payment) => {
       let debitAccount = '906'
-      let creditAccount = '1020'
+      let creditAccount = '252'
 
       let journalRecord = record.create({
         type: record.Type.JOURNAL_ENTRY,

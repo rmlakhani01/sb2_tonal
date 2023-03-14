@@ -76,19 +76,18 @@ define(['N/search', 'N/record', 'N/format'], function (
 
       filename = input.filename
       stageId = input.id
-      if (
-        typeof input.header === 'string' &&
-        typeof input.lines === 'string'
-      ) {
+
+      if (typeof input.header === 'string')
         header = JSON.parse(input.header)
+      if (typeof input.lines === 'string')
         stgLines = JSON.parse(input.lines)
-      }
 
       if (header['Distribution_Center'].startsWith('EXT') === true) {
         let id = header['Delivery_ID'].replace(/\D/g, '')
         salesOrder = fetchBulkSalesOrder(id)
         bulkSoLines = fetchBulkSalesOrderLines(id)
         stageSCLines = extractExtronItems(stgLines)
+        stageSCLines = removePhantomSKUs(stageSCLines)
       }
 
       if (header['Distribution_Center'].startsWith('GIL') === true) {
@@ -96,7 +95,13 @@ define(['N/search', 'N/record', 'N/format'], function (
         salesOrder = fetchBulkSalesOrder(id)
         bulkSoLines = fetchBulkSalesOrderLines(id)
         stageSCLines = extractGilbertItems(stgLines)
+        let tempItems = checkPhantomSkus(stageSCLines)
+        if (tempItems.length > 0) {
+          stageSCLines = updateGilbertItems(stageSCLines)
+        }
       }
+
+      stageSCLines = shipConfirmItems(stageSCLines)
 
       var key = header['BULK_ID']
         ? header['BULK_ID']
@@ -125,73 +130,81 @@ define(['N/search', 'N/record', 'N/format'], function (
           input.id,
         )
       }
-
-      // TODO: If the arrays are empty, KEY = FAILED, VALUES = IDs - ERROR OUT STAGING RECORDS
     } catch (e) {
       log.debug('ERROR - MAP', e)
       log.debug('ERROR - MAP', e.stack)
     }
-
-    // TODO: Compare stgLines Against Lines
-    // TODO: If Items are missing report error on bulk sales order line
-    // TODO: If no Items are missing create Inventory Transfer ( Ship Inventory Transfer Only)
   }
 
   const reduce = (context) => {
-    log.debug('KEY', context.key)
     try {
       let orders = context.values
       let shipInvXferId
       orders.forEach((order) => {
         order = JSON.parse(order)
-        let stageSCLines, comparison, shipDate
+        let shipDate, itemsToBeUpdated
 
-        if (
-          order.header['Distribution_Center'].startsWith('GIL') ===
-          true
-        ) {
-          shipDate = order.header['SHIP_DATE']
-          stageSCLines = removePhantomSKUs(order.stageSCLines)
-          stageSCLines = updateGilbertItems(stageSCLines)
-        }
+        order.header['Distribution_Center'].startsWith('GIL')
+          ? (shipDate = order.header['SHIP_DATE'])
+          : (shipDate = order.stgLines[0]['Ship_Date'])
 
-        if (
-          order.header['Distribution_Center'].startsWith('EXT') ===
-          true
-        ) {
-          stageSCLines = removePhantomSKUs(order.stageSCLines)
-          shipDate = order.stgLines[0]['Ship_Date']
-        }
-        comparison = compareItems(stageSCLines, order.bulkSoLines)
+        let output = compareScToBulk(
+          order.stageSCLines,
+          order.bulkSoLines,
+        )
 
-        if (
-          comparison.uniqueStageShipConfirmLines.length >
-          comparison.uniqueBulkSalesOrderLines.length
-        ) {
-          //TODO: ADD LOGIC TO RETURN AN ERROR ON THE STAGE RECORD
-          //TODO: if ship confirm items != bulk sales Order items check against items first, if items match then call quantitiesMismatch fn.
-          //TODO: IMPLEMENT COMPARISON LOGIC FOR QUANTITY. SAME AS ITEM COMPARISON.
-          log.debug('ERROR', comparison.uniqueStageShipConfirmLines)
-        }
+        log.debug('stageScLines', order.stageSCLines)
+        log.debug('bulkSoLines', order.bulkSoLines)
 
-        if (
-          comparison.uniqueStageShipConfirmLines.length ===
-            comparison.uniqueBulkSalesOrderLines.length ||
-          comparison.uniqueBulkSalesOrderLines.length >
-            comparison.uniqueStageShipConfirmLines.length
-        ) {
-          shipInvXferId = addShipInventoryTransfer(
+        let finalOutput = compareBulkToSc(
+          order.stageSCLines,
+          order.bulkSoLines,
+          output,
+        )
+        log.debug('finalOutput', finalOutput)
+
+        let overage = finalOutput.filter((result) => result.qty >= 1)
+        let success = finalOutput.filter((result) => result.qty === 0)
+        let shortage = finalOutput.filter((result) => result.qty < 0)
+
+        log.debug('overage', overage)
+        log.debug('success', success)
+        log.debug('shortage', shortage)
+
+        if (success.length > 0 || shortage.length > 0) {
+          itemsToBeUpdated = extractItems(
+            order.stageSCLines,
             order.bulkSoLines,
+          )
+        }
+
+        log.debug('itemsToBeUpdated', itemsToBeUpdated)
+
+        //overrage
+        if (overage.length > 0) {
+          failedStagingRecord(
+            order.stageId,
+            4,
+            'ITEMS OR QUANTITY MISMATCH',
+          )
+          return
+        }
+
+        //shortage
+        if (overage.length === 0 && shortage.length > 0) {
+          shipInvXferId = addShipInventoryTransfer(
+            order.stageSCLines,
             shipDate,
             order.salesOrder,
             order.header,
           )
-          if (shipInvXferId && shipInvXferId !== null) {
+          if (shipInvXferId) {
             updateBulkSoLines(
               shipInvXferId,
               shipDate,
               order.bulkSoLines,
               order.stageSCLines,
+              itemsToBeUpdated,
               order.filename,
             )
           }
@@ -200,6 +213,40 @@ define(['N/search', 'N/record', 'N/format'], function (
             order.salesOrder,
             shipInvXferId,
             order.stageId,
+            3,
+            'ERROR MISSING ITEM OR QUANTITY',
+          )
+        }
+
+        // success
+        if (
+          overage.length === 0 &&
+          shortage.length === 0 &&
+          success.length > 0
+        ) {
+          shipInvXferId = addShipInventoryTransfer(
+            order.stageSCLines,
+            shipDate,
+            order.salesOrder,
+            order.header,
+          )
+          if (shipInvXferId) {
+            updateBulkSoLines(
+              shipInvXferId,
+              shipDate,
+              order.bulkSoLines,
+              order.stageSCLines,
+              itemsToBeUpdated,
+              order.filename,
+            )
+          }
+
+          updateStagingShipConfirm(
+            order.salesOrder,
+            shipInvXferId,
+            order.stageId,
+            2,
+            null,
           )
         }
       })
@@ -313,9 +360,11 @@ define(['N/search', 'N/record', 'N/format'], function (
             itemName: bulkLine.getText({
               name: 'custrecord_bo_so_line_item',
             }),
-            qty: bulkLine.getValue({
-              name: 'custrecord_bo_so_line_released_qty',
-            }),
+            qty: parseInt(
+              bulkLine.getValue({
+                name: 'custrecord_bo_so_line_released_qty',
+              }),
+            ),
           }
           lines.push(line)
           return true
@@ -337,7 +386,7 @@ define(['N/search', 'N/record', 'N/format'], function (
           serial: line['Serial_Number1'],
           serial2: line['Serial_Number2'],
           serial3: line['Serial_Number3'],
-          qty: line['Box_Qty'],
+          qty: parseInt(line['Box_Qty']),
         })
       })
 
@@ -355,7 +404,7 @@ define(['N/search', 'N/record', 'N/format'], function (
           item: line['STYLE'],
           shipDate: line['ORDER_NUMBER'].split('-')[0],
           serial: line['SERIAL_NUMBER'],
-          qty: line['QUANTITY_SHIPPED'],
+          qty: parseInt(line['QUANTITY_SHIPPED']),
         })
       })
 
@@ -366,19 +415,31 @@ define(['N/search', 'N/record', 'N/format'], function (
   }
 
   const updateGilbertItems = (lines) => {
-    //removal
-    let qty = lines[0].qty
-    const gilbertItems = removePhantomSKUs(lines)
+    let output = []
 
-    let items = ['160-0003', '121-0006', '121-0007']
-    // addition
-    for (var i = 0; i < items.length; i++) {
-      gilbertItems.push({
-        item: items[i],
-        qty: qty,
-      })
-    }
-    return gilbertItems
+    lines.forEach((line, index) => {
+      if (line.item !== '150-0001' || line.item !== '160-0001')
+        output.push(line)
+
+      if (line.item === '150-0001') {
+        output.splice(index)
+        output.push({
+          item: '150-0024',
+          qty: line.qty,
+        })
+      }
+
+      if (line.item === '160-0001') {
+        output.splice(
+          index,
+          1,
+          { item: '160-0003', qty: line.qty },
+          { item: '121-0006', qty: line.qty },
+          { item: '121-0007', qty: line.qty },
+        )
+      }
+    })
+    return output
   }
 
   const removePhantomSKUs = (lines) => {
@@ -388,61 +449,14 @@ define(['N/search', 'N/record', 'N/format'], function (
     })
   }
 
-  const compareItems = (stageSCLines, bulkSoLines) => {
-    let uniqueSCLines = stageSCLines.filter((stageScLine) => {
-      return !bulkSoLines.some((bulkSoLine) => {
-        return stageScLine.item === bulkSoLine.itemName
-      })
-    })
-
-    let uniqueBulkSoLines = bulkSoLines.filter((bulkSoLine) => {
-      return !stageSCLines.some((stageScLine) => {
-        return bulkSoLine.itemName === stageScLine.item
-      })
-    })
-
-    return {
-      uniqueStageShipConfirmLines: uniqueSCLines,
-      uniqueBulkSalesOrderLines: uniqueBulkSoLines,
-    }
-  }
-
-  const quantitiesMismatch = (
-    uniqueStageShipConfirmLines,
-    bulkSoLines,
-  ) => {
-    let item = uniqueStageShipConfirmLines[0].item
-    let qty = uniqueStageShipConfirmLines[0].qty
-
-    let bulkItem = bulkSoLines.filter(
-      (bulkSoLine) => bulkSoLine.itemName === item,
-    )
-
-    if (bulkItem[0].qty !== qty) {
-      // TODO: Update ship confirm stage record with error.
-    }
-  }
-
-  const updateStagingStatus = (stageId, status, key) => {
-    switch (status) {
-      case 1:
-        break
-      case 2:
-        break
-      case 3:
-        break
-      case 4:
-        failedStagingRecord(stageId, status, `MISSING_${key}`)
-        break
-    }
-  }
-
   const addShipInventoryTransfer = (
-    bulkSoLines,
+    stageSCLines,
     shipDate,
     salesOrder,
     header,
   ) => {
+    let items = stageSCLines.filter((lines) => lines.qty !== 0)
+
     let orderNumber, eID
     if (header['Distribution_Center'].startsWith('EXT') === true) {
       orderNumber = header['Order_Number']
@@ -497,17 +511,17 @@ define(['N/search', 'N/record', 'N/format'], function (
       value: salesOrder[0].bulkId,
     })
 
-    bulkSoLines.forEach((bulkSoLine) => {
+    items.forEach((item) => {
       inventoryTransfer.selectNewLine({ sublistId: 'inventory' })
       inventoryTransfer.setCurrentSublistValue({
         sublistId: 'inventory',
         fieldId: 'item',
-        value: bulkSoLine.item,
+        value: item.details[0].id,
       })
       inventoryTransfer.setCurrentSublistValue({
         sublistId: 'inventory',
         fieldId: 'adjustqtyby',
-        value: bulkSoLine.qty,
+        value: item.qty,
       })
       inventoryTransfer.commitLine({ sublistId: 'inventory' })
     })
@@ -531,30 +545,33 @@ define(['N/search', 'N/record', 'N/format'], function (
     shipDate,
     bulkSoLines,
     stageSCLines,
+    itemsToBeUpdated,
     filename,
   ) => {
     try {
-      bulkSoLines.forEach((bulkSoLine) => {
+      itemsToBeUpdated.forEach((item) => {
         let bulkSo = record.load({
           type: 'customrecord_bulk_order_so_lines',
-          id: bulkSoLine.id,
+          id: item.id,
           isDynamic: true,
         })
 
         let serializedItem = stageSCLines.filter(
-          (line) => line.item === '100-0002',
+          (line) => line.item === '100-0002' && line.serial !== '',
         )
 
-        if (bulkSoLine.itemName === serializedItem[0]['item']) {
-          bulkSo.setValue({
-            fieldId: 'custrecord_bo_so_line_serial_num',
-            value: serializedItem[0]['serial'],
-          })
+        if (serializedItem.length > 0) {
+          if (item.item === serializedItem[0]['item']) {
+            bulkSo.setValue({
+              fieldId: 'custrecord_bo_so_line_serial_num',
+              value: serializedItem[0]['serial'],
+            })
+          }
         }
 
         bulkSo.setValue({
           fieldId: 'custrecord_bo_so_line_shipped_qty',
-          value: bulkSoLine.qty,
+          value: item.qty,
         })
 
         bulkSo.setValue({
@@ -589,6 +606,8 @@ define(['N/search', 'N/record', 'N/format'], function (
     salesOrder,
     shipInvXferId,
     stageId,
+    status,
+    reason,
   ) => {
     log.debug('salesOrder', salesOrder)
     log.debug('shipInvXferId', shipInvXferId)
@@ -602,7 +621,7 @@ define(['N/search', 'N/record', 'N/format'], function (
 
     stageRecord.setValue({
       fieldId: 'custrecord_stg_sc_status',
-      value: 2,
+      value: status,
     })
     stageRecord.setValue({
       fieldId: 'custrecord_stg_sc_inventory_transfer',
@@ -616,6 +635,12 @@ define(['N/search', 'N/record', 'N/format'], function (
       fieldId: 'custrecord_stg_sc_bo_so',
       value: salesOrder[0].id,
     })
+    if (reason) {
+      stageRecord.setValue({
+        fieldId: 'custrecord_stg_sc_error_message',
+        value: reason,
+      })
+    }
     stageRecord.save()
   }
 
@@ -632,6 +657,10 @@ define(['N/search', 'N/record', 'N/format'], function (
     stgRec.setValue({
       fieldId: 'custrecord_stg_sc_error_message',
       value: '[' + new Date() + '] - ERROR: ' + reason,
+    })
+    stgRec.setValue({
+      fieldId: 'custrecord_stg_sc_process_date',
+      value: new Date(),
     })
     stgRec.save()
   }
@@ -699,6 +728,133 @@ define(['N/search', 'N/record', 'N/format'], function (
         })
         return output
     }
+  }
+
+  const getItemDetails = (sku) => {
+    const items = []
+    search
+      .create({
+        type: search.Type.ITEM,
+        filters: [
+          {
+            name: 'name',
+            operator: search.Operator.IS,
+            values: [sku],
+          },
+          {
+            name: 'isinactive',
+            operator: search.Operator.IS,
+            values: false,
+          },
+        ],
+        columns: [{ name: 'internalid' }, { name: 'name' }],
+      })
+      .run()
+      .each((item) => {
+        let sku = {
+          id: item.getValue({ name: 'internalid' }),
+          name: item.getValue({ name: 'name' }),
+        }
+        items.push(sku)
+        return true
+      })
+
+    return items
+  }
+
+  const shipConfirmItems = (items) => {
+    let shipItems = items.map((i) => i.item)
+    let shipConfirmItems = items.filter(
+      ({ item }, index) => !shipItems.includes(item, index + 1),
+    )
+
+    shipConfirmItems.forEach((item) => {
+      item.details = [...getItemDetails(item.item)]
+    })
+
+    return shipConfirmItems
+  }
+
+  const checkPhantomSkus = (stageScLines) => {
+    let temp1 = stageScLines.filter(
+      (line) => line.item === '150-0001',
+    )
+    let temp2 = stageScLines.filter(
+      (line) => line.item === '160-0001',
+    )
+
+    return [...temp1, ...temp2]
+  }
+
+  const compareScToBulk = (stageScLines, bulkSoLines) => {
+    var results = []
+    for (var i = 0; i < stageScLines.length; i += 1) {
+      var array = bulkSoLines.filter(
+        (bulkLine) => bulkLine.itemName === stageScLines[i].item,
+      )
+
+      // Matching Items
+      if (array.length > 0) {
+        // with Matching Quantities
+        if (stageScLines[i].qty === array[0].qty) {
+          results.push({
+            item: stageScLines[i].item,
+            qty: stageScLines[i].qty - array[0].qty,
+          })
+          //without matching quantities
+        } else {
+          results.push({
+            item: stageScLines[i].item,
+            qty: stageScLines[i].qty - array[0].qty,
+          })
+        }
+        // items that are missing
+      } else {
+        results.push({
+          item: stageScLines[i].item,
+          qty: stageScLines[i].qty,
+        })
+      }
+    }
+
+    return results
+  }
+
+  const compareBulkToSc = (stageScLines, bulkSoLines, results) => {
+    for (var i = 0; i < bulkSoLines.length; i += 1) {
+      var array = stageScLines.filter(
+        (stageScLines) =>
+          stageScLines.item === bulkSoLines[i].itemName,
+      )
+      if (array.length === 0) {
+        results.push({
+          item: bulkSoLines[i].itemName,
+          qty: -bulkSoLines[i].qty,
+        })
+      }
+    }
+    return results
+  }
+
+  const extractItems = (stageScLines, bulkSoLines) => {
+    var tobeUpdated = []
+    for (var i = 0; i < stageScLines.length; i += 1) {
+      let bulkItems = bulkSoLines.filter(
+        (lines) =>
+          lines.itemName === stageScLines[i].item &&
+          stageScLines[i].qty !== 0,
+      )
+      if (bulkItems.length > 0) {
+        tobeUpdated.push({
+          id: bulkItems[0].id,
+          item: bulkItems[0].itemName,
+          serial: stageScLines[i].serial,
+          qty: stageScLines[i].qty,
+        })
+      }
+    }
+
+    return tobeUpdated
   }
 
   return {
