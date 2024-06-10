@@ -168,6 +168,7 @@ define(['N/record', 'N/search'], function (record, search) {
             isManualActionRequired: false,
             isNoActionRequired: true,
             id: order.stageId,
+            soId: order.salesOrderId,
           }
         }
 
@@ -180,6 +181,7 @@ define(['N/record', 'N/search'], function (record, search) {
             isManualActionRequired: false,
             isNoActionRequired: true,
             id: order.stageId,
+            soId: order.salesOrderId,
           }
         }
 
@@ -192,6 +194,7 @@ define(['N/record', 'N/search'], function (record, search) {
             isManualActionRequired: false,
             isNoActionRequired: true,
             id: order.stageId,
+            soId: order.salesOrderId,
           }
         }
 
@@ -204,6 +207,7 @@ define(['N/record', 'N/search'], function (record, search) {
             isManualActionRequired: true,
             isNoActionRequired: false,
             id: order.stageId,
+            soId: order.salesOrderId,
           }
         }
 
@@ -720,10 +724,12 @@ define(['N/record', 'N/search'], function (record, search) {
           value: stage.data.tranId,
         })
 
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_sales_order',
-          value: stage.data.soId,
-        })
+        if (stage.data.soId) {
+          stageRecord.setValue({
+            fieldId: 'custrecord_stg_sales_order',
+            value: stage.data.soId,
+          })
+        }
 
         stageRecord.save()
       })
@@ -744,6 +750,12 @@ define(['N/record', 'N/search'], function (record, search) {
           fieldId: 'custrecord_stg_date_process',
           value: new Date(),
         })
+        if (stage.data.soId) {
+          stageRecord.setValue({
+            fieldId: 'custrecord_stg_sales_order',
+            value: stage.data.soId,
+          })
+        }
         stageRecord.setValue({
           fieldId: 'custrecord_stg_errors',
           value: JSON.stringify(stage.errors),
@@ -763,6 +775,12 @@ define(['N/record', 'N/search'], function (record, search) {
           fieldId: 'custrecord_stg_status',
           value: 3,
         })
+        if (stage.data.soId) {
+          stageRecord.setValue({
+            fieldId: 'custrecord_stg_sales_order',
+            value: stage.data.soId,
+          })
+        }
         stageRecord.setValue({
           fieldId: 'custrecord_stg_date_process',
           value: new Date(),
@@ -782,6 +800,12 @@ define(['N/record', 'N/search'], function (record, search) {
           fieldId: 'custrecord_stg_status',
           value: 4,
         })
+        if (stage.data.soId) {
+          stageRecord.setValue({
+            fieldId: 'custrecord_stg_sales_order',
+            value: stage.data.soId,
+          })
+        }
         stageRecord.setValue({
           fieldId: 'custrecord_stg_date_process',
           value: new Date(),
