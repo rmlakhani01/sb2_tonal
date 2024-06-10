@@ -77,16 +77,14 @@ define(['N/record', 'N/search'], function (record, search) {
         : 'Delivery_ID'
 
       order.salesOrderId = getSalesOrder(headerData[salesOrderKey])
-      order.salesOrderId && order.salesOrderId.length > 0
+      order.salesOrderId
         ? (order.orderExists = true)
         : (order.orderExists = false)
       order.shipDate = headerData.SHIP_DATE || headerData.Ship_Date
       order.shipConfirmLines = orderData(lineData)
 
       if (order.orderExists === true && order.salesOrderId) {
-        order.salesOrderLines = getSalesOrderLines(
-          order.salesOrderId[0].id,
-        )
+        order.salesOrderLines = getSalesOrderLines(order.salesOrderId)
         order.shipConfirmLines.length > 0
           ? (order.skuExists = true)
           : (order.skuExists = false)
@@ -161,6 +159,7 @@ define(['N/record', 'N/search'], function (record, search) {
             isManualActionRequired: false,
             isNoActionRequired: true,
             id: order.stageId,
+            soId: order.salesOrderId,
           }
         }
 
@@ -332,7 +331,7 @@ define(['N/record', 'N/search'], function (record, search) {
 
   const getSalesOrder = (id) => {
     try {
-      const salesOrders = []
+      let soId
       search
         .create({
           type: search.Type.TRANSACTION,
@@ -362,12 +361,10 @@ define(['N/record', 'N/search'], function (record, search) {
         })
         .run()
         .each((salesOrder) => {
-          salesOrders.push({
-            id: salesOrder.getValue({ name: 'internalid' }),
-          })
+          soId = salesOrder.getValue({ name: 'internalid' })
           return false
         })
-      return salesOrders
+      return soId
     } catch (error) {
       log.debug('error fetching sales order', error)
     }
@@ -482,7 +479,7 @@ define(['N/record', 'N/search'], function (record, search) {
     try {
       let fulfillmentRec = record.transform({
         fromType: record.Type.SALES_ORDER,
-        fromId: order.salesOrderId[0].id,
+        fromId: order.salesOrderId,
         toType: record.Type.ITEM_FULFILLMENT,
         isDynamic: true,
       })
@@ -573,7 +570,7 @@ define(['N/record', 'N/search'], function (record, search) {
       if (tranId) {
         response.isSuccess = true
         response.tranId = tranId
-        response.soId = order.salesOrderId[0].id
+        response.soId = order.salesOrderId
         return response
       }
     } catch (error) {
