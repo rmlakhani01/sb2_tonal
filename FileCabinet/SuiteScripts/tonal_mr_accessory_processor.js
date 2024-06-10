@@ -619,27 +619,55 @@ define(['N/record', 'N/search'], function (record, search) {
         value: new Date(parseDate(order.shipDate)),
       })
 
-      order.shipConfirmLines.forEach((line) => {
-        inventoryAdjustment.selectNewLine({
-          sublistId: 'inventory',
+      const inventoryItems = order.shipConfirmLines.filter(
+        (shipLine) => shipLine.itemType === 'InvtPart',
+      )
+
+      if (inventoryItems.length > 0) {
+        inventoryItems.forEach((line) => {
+          inventoryAdjustment.selectNewLine({
+            sublistId: 'inventory',
+          })
+          inventoryAdjustment.setCurrentSublistValue({
+            sublistId: 'inventory',
+            fieldId: 'item',
+            value: line.itemId,
+          })
+          inventoryAdjustment.setCurrentSublistValue({
+            sublistId: 'inventory',
+            fieldId: 'location',
+            value: order.location,
+          })
+          inventoryAdjustment.setCurrentSublistValue({
+            sublistId: 'inventory',
+            fieldId: 'adjustqtyby',
+            value: -parseInt(line.qty),
+          })
+          inventoryAdjustment.commitLine({ sublistId: 'inventory' })
         })
-        inventoryAdjustment.setCurrentSublistValue({
-          sublistId: 'inventory',
-          fieldId: 'item',
-          value: line.itemId,
-        })
-        inventoryAdjustment.setCurrentSublistValue({
-          sublistId: 'inventory',
-          fieldId: 'location',
-          value: order.location,
-        })
-        inventoryAdjustment.setCurrentSublistValue({
-          sublistId: 'inventory',
-          fieldId: 'adjustqtyby',
-          value: -parseInt(line.qty),
-        })
-        inventoryAdjustment.commitLine({ sublistId: 'inventory' })
-      })
+      }
+
+      // order.shipConfirmLines.forEach((line) => {
+      //   inventoryAdjustment.selectNewLine({
+      //     sublistId: 'inventory',
+      //   })
+      //   inventoryAdjustment.setCurrentSublistValue({
+      //     sublistId: 'inventory',
+      //     fieldId: 'item',
+      //     value: line.itemId,
+      //   })
+      //   inventoryAdjustment.setCurrentSublistValue({
+      //     sublistId: 'inventory',
+      //     fieldId: 'location',
+      //     value: order.location,
+      //   })
+      //   inventoryAdjustment.setCurrentSublistValue({
+      //     sublistId: 'inventory',
+      //     fieldId: 'adjustqtyby',
+      //     value: -parseInt(line.qty),
+      //   })
+      //   inventoryAdjustment.commitLine({ sublistId: 'inventory' })
+      // })
       let adjustId = inventoryAdjustment.save()
 
       if (adjustId) {
