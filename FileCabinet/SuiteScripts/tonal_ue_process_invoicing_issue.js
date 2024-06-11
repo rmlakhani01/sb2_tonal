@@ -17,7 +17,7 @@ define(['N/ui/serverWidget'], function (_serverWidget) {
         label: 'Process Invoice Error',
         functionName: 'updateCustomRecord',
       })
-      currentForm.clientScriptFileId = '12345'
+      currentForm.clientScriptFileId = '814569'
     }
   }
 
