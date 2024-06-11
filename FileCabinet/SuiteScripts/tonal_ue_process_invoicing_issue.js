@@ -7,7 +7,7 @@ define(['N/ui/serverWidget'], function (_serverWidget) {
     const currentRecord = context.currentRecord
     const currentForm = context.form
 
-    const hasInvoiceError = currentRecord.getValue({
+    const hasInvoiceError = currentRecord.newRecord.getValue({
       fieldId: 'custbody_invoice_error',
     })
 
