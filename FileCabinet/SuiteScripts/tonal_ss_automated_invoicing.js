@@ -323,7 +323,7 @@ define(['N/search', 'N/record', 'N/runtime', 'N/task'], function (
 
     errorRecord.setValue({
       fieldId: 'custrecord_errors',
-      value: errorObj,
+      value: errorObj.message,
     })
 
     errorRecord.setValue({
@@ -332,6 +332,14 @@ define(['N/search', 'N/record', 'N/runtime', 'N/task'], function (
     })
 
     errorRecord.save()
+
+    _record.submitFields({
+      type: _record.Type.SALES_ORDER,
+      id: order.id,
+      values: {
+        custbody_invoice_error: true,
+      },
+    })
   }
 
   return {
