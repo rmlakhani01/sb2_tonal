@@ -620,7 +620,9 @@ define(['N/record', 'N/search'], function (record, search) {
       })
 
       const inventoryItems = order.shipConfirmLines.filter(
-        (shipLine) => shipLine.itemType === 'InvtPart',
+        (shipLine) =>
+          shipLine.itemType === 'InvtPart' ||
+          shipLine.itemType === 'Assembly',
       )
 
       if (inventoryItems.length > 0) {
@@ -646,28 +648,6 @@ define(['N/record', 'N/search'], function (record, search) {
           inventoryAdjustment.commitLine({ sublistId: 'inventory' })
         })
       }
-
-      // order.shipConfirmLines.forEach((line) => {
-      //   inventoryAdjustment.selectNewLine({
-      //     sublistId: 'inventory',
-      //   })
-      //   inventoryAdjustment.setCurrentSublistValue({
-      //     sublistId: 'inventory',
-      //     fieldId: 'item',
-      //     value: line.itemId,
-      //   })
-      //   inventoryAdjustment.setCurrentSublistValue({
-      //     sublistId: 'inventory',
-      //     fieldId: 'location',
-      //     value: order.location,
-      //   })
-      //   inventoryAdjustment.setCurrentSublistValue({
-      //     sublistId: 'inventory',
-      //     fieldId: 'adjustqtyby',
-      //     value: -parseInt(line.qty),
-      //   })
-      //   inventoryAdjustment.commitLine({ sublistId: 'inventory' })
-      // })
       let adjustId = inventoryAdjustment.save()
 
       if (adjustId) {
