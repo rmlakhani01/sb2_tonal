@@ -4,10 +4,10 @@
  */
 define(['N/ui/serverWidget'], function (_serverWidget) {
   function beforeLoad(context) {
-    const currentRecord = context.currentRecord
+    const currRec = context.currentRecord
     const currentForm = context.form
 
-    const hasInvoiceError = currentRecord.newRecord.getValue({
+    const hasInvoiceError = currRec.newRecord.getValue({
       fieldId: 'custbody_invoice_error',
     })
 
