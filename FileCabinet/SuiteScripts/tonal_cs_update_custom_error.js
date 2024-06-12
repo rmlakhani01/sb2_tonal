@@ -15,6 +15,7 @@ define(['N/currentRecord', 'N/record'], function (
 
     updateErrorCustomRecord(errorId)
     updateSalesOrder(salesOrder.id)
+    location.reload()
   }
 
   const updateSalesOrder = (soid) => {
