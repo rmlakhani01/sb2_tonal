@@ -7,8 +7,10 @@ define(['N/currentRecord', 'N/record'], function (
 ) {
   const updateCustomRecord = () => {
     let currentRec = currentRecord.get()
-    alert('currentRec', currentRec)
-    alert('currentRec.type', currentRec.type)
+    let errorRecord = currentRecord.getValue({
+      fieldId: 'custbody_error_record',
+    })
+    alert(errorRecord)
     const customRec = record.load({
       type: currentRec.type,
       id: currentRec.id,
