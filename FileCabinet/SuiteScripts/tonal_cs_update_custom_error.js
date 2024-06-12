@@ -8,7 +8,7 @@ define(['N/currentRecord', 'N/record'], function (
 ) {
   const updateCustomRecord = () => {
     let salesOrder = currentRecord.get()
-    alert(salesOrder)
+    alert(JSON.stringify(salesOrder))
     let errorId = salesOrder.getValue({
       fieldId: 'custbody_error_record',
     })
