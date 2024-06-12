@@ -4,20 +4,29 @@
  */
 define(['N/ui/serverWidget'], function (_serverWidget) {
   function beforeLoad(context) {
-    const currRec = context.currentRecord
     const currentForm = context.form
 
-    const hasInvoiceError = currRec.newRecord.getValue({
+    const hasInvoiceError = context.newRecord.getValue({
       fieldId: 'custbody_invoice_error',
     })
 
-    if (hasInvoiceError && hasInvoiceError === true) {
+    const salesOrderStatus = context.newRecord.getValue({
+      fieldId: 'orderstatus',
+    })
+
+    if (
+      hasInvoiceError &&
+      hasInvoiceError === true &&
+      salesOrderStatus === 'F'
+    ) {
+      currentForm.clientScriptModulePath =
+        './tonal_cs_update_custom_error.js'
+
       currentForm.addButton({
         id: 'custpage_invoice_error_handler',
         label: 'Process Invoice Error',
         functionName: 'updateCustomRecord',
       })
-      currentForm.clientScriptFileId = '814569'
     }
   }
 

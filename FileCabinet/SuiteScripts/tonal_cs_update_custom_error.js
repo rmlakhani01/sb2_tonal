@@ -1,18 +1,13 @@
 /**
- *@NApiVersion 2.x
- *@NScriptType ClientScript
+ *@NApiVersion 2.1
  */
-define(['N/record'], function (record) {
-  function pageInit(context) {
-    alert('pageInit - initiated')
-  }
-
+define(['N/currentRecord'], function (currentRecord) {
   const updateCustomRecord = (context) => {
-    alert(context.id)
+    let record = currentRecord.get()
+    alert('record', record)
   }
 
   return {
-    pageInit: pageInit,
     updateCustomRecord: updateCustomRecord,
   }
 })
