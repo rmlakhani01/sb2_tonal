@@ -13,6 +13,24 @@ define(['N/currentRecord', 'N/record'], function (
       fieldId: 'custbody_error_record',
     })
 
+    updateCustomRecord(errorId)
+    updateSalesOrder(salesOrder.id)
+  }
+
+  const updateSalesOrder = (soid) => {
+    let salesOrder = record.load({
+      type: record.Type.SALES_ORDER,
+      id: soid,
+    })
+
+    salesOrder.setValue({
+      fieldId: 'custbody_invoice_error',
+      value: false,
+    })
+    salesOrder.save()
+  }
+
+  const updateCustomRecord = (errorId) => {
     const customRec = record.load({
       type: 'customrecord_errors_invoice',
       id: errorId,
@@ -28,13 +46,6 @@ define(['N/currentRecord', 'N/record'], function (
       value: new Date(),
     })
     customRec.save()
-
-    salesOrder.setValue({
-      fieldId: 'custbody_invoice_error',
-      value: false,
-      ignoreFieldChange: true,
-      forceSyncSourcing: true,
-    })
   }
 
   return {
