@@ -27,7 +27,7 @@ define(['N/currentRecord', 'N/record'], function (
 
     salesOrder.setValue({
       fieldId: 'custbody_invoice_error',
-      value: false,
+      value: 'F',
     })
     salesOrder.save()
   }
