@@ -19,16 +19,13 @@ define(['N/currentRecord', 'N/record'], function (
   }
 
   const updateSalesOrder = (soid) => {
-    let salesOrder = record.load({
+    record.submitFields({
       type: record.Type.SALES_ORDER,
       id: soid,
+      values: {
+        custbody_invoice_error: false,
+      },
     })
-
-    salesOrder.setValue({
-      fieldId: 'custbody_invoice_error',
-      value: 'F',
-    })
-    salesOrder.save()
   }
 
   const updateErrorCustomRecord = (errorId) => {
