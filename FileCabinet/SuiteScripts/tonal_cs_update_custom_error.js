@@ -19,7 +19,6 @@ define(['N/currentRecord', 'N/record'], function (
   }
 
   const updateSalesOrder = (soid) => {
-    alert(soid)
     let salesOrder = record.load({
       type: record.Type.SALES_ORDER,
       id: soid,
