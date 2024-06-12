@@ -24,6 +24,7 @@ define(['N/currentRecord', 'N/record'], function (
       id: soid,
       values: {
         custbody_invoice_error: false,
+        custbody_error_record: null,
       },
     })
   }
