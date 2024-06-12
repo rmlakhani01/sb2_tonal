@@ -331,13 +331,14 @@ define(['N/search', 'N/record', 'N/runtime', 'N/task'], function (
       value: 1,
     })
 
-    errorRecord.save()
+    let errorId = errorRecord.save()
 
     _record.submitFields({
       type: _record.Type.SALES_ORDER,
       id: order.id,
       values: {
         custbody_invoice_error: true,
+        custbody_error_record: errorId,
       },
     })
   }

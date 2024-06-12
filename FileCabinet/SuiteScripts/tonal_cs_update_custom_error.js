@@ -2,7 +2,7 @@
  *@NApiVersion 2.1
  */
 define(['N/currentRecord'], function (currentRecord) {
-  const updateCustomRecord = (context) => {
+  const updateCustomRecord = () => {
     let record = currentRecord.get()
     alert('record', record)
   }
