@@ -13,11 +13,12 @@ define(['N/currentRecord', 'N/record'], function (
       fieldId: 'custbody_error_record',
     })
 
-    updateCustomRecord(errorId)
+    updateErrorCustomRecord(errorId)
     updateSalesOrder(salesOrder.id)
   }
 
   const updateSalesOrder = (soid) => {
+    alert(soid)
     let salesOrder = record.load({
       type: record.Type.SALES_ORDER,
       id: soid,
@@ -30,7 +31,7 @@ define(['N/currentRecord', 'N/record'], function (
     salesOrder.save()
   }
 
-  const updateCustomRecord = (errorId) => {
+  const updateErrorCustomRecord = (errorId) => {
     const customRec = record.load({
       type: 'customrecord_errors_invoice',
       id: errorId,
