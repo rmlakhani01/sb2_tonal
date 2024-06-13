@@ -14,6 +14,10 @@ define(['N/ui/serverWidget'], function (_serverWidget) {
       fieldId: 'orderstatus',
     })
 
+    const errorId = context.newRecord.getValue({
+      fieldId: 'custbody_error_record',
+    })
+
     if (
       hasInvoiceError &&
       hasInvoiceError === true &&
@@ -25,7 +29,7 @@ define(['N/ui/serverWidget'], function (_serverWidget) {
       currentForm.addButton({
         id: 'custpage_invoice_error_handler',
         label: 'Process Invoice Error',
-        functionName: 'updateCustomRecord',
+        functionName: `updateCustomRecord(${errorId})`,
       })
     }
   }
