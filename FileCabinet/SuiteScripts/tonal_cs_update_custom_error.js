@@ -9,11 +9,6 @@ define(['N/currentRecord', 'N/record'], function (
   const updateCustomRecord = (errorId) => {
     let salesOrder = currentRecord.get()
 
-    // let errorId = salesOrder.getValue({
-    //   fieldId: 'custbody_error_record',
-    // })
-    alert(errorId)
-
     updateErrorCustomRecord(errorId)
     updateSalesOrder(salesOrder.id)
     location.reload()
