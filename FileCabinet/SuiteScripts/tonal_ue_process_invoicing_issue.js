@@ -29,7 +29,7 @@ define(['N/ui/serverWidget'], function (_serverWidget) {
       currentForm.addButton({
         id: 'custpage_invoice_error_handler',
         label: 'Process Invoice Error',
-        functionName: `updateCustomRecord(${errorId})`,
+        functionName: 'updateCustomRecord(' + errorId + ')',
       })
     }
   }
