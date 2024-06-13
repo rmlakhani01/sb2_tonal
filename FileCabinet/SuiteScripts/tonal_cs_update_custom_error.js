@@ -19,32 +19,40 @@ define(['N/currentRecord', 'N/record'], function (
   }
 
   const updateSalesOrder = (soid) => {
-    record.submitFields({
-      type: record.Type.SALES_ORDER,
-      id: soid,
-      values: {
-        custbody_invoice_error: false,
-        custbody_error_record: null,
-      },
-    })
+    try {
+      record.submitFields({
+        type: record.Type.SALES_ORDER,
+        id: soid,
+        values: {
+          custbody_invoice_error: false,
+          custbody_error_record: null,
+        },
+      })
+    } catch (error) {
+      alert(error)
+    }
   }
 
   const updateErrorCustomRecord = (errorId) => {
-    const customRec = record.load({
-      type: 'customrecord_errors_invoice',
-      id: errorId,
-      isDynamic: true,
-    })
+    try {
+      const customRec = record.load({
+        type: 'customrecord_errors_invoice',
+        id: errorId,
+        isDynamic: true,
+      })
 
-    customRec.setValue({
-      fieldId: 'custrecord_error_status',
-      value: 2,
-    })
-    customRec.setValue({
-      fieldId: 'custrecord_error_processed_date',
-      value: new Date(),
-    })
-    customRec.save()
+      customRec.setValue({
+        fieldId: 'custrecord_error_status',
+        value: 2,
+      })
+      customRec.setValue({
+        fieldId: 'custrecord_error_processed_date',
+        value: new Date(),
+      })
+      customRec.save()
+    } catch (error) {
+      alert(error)
+    }
   }
 
   return {
