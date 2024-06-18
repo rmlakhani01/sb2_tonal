@@ -711,116 +711,61 @@ define(['N/record', 'N/search'], function (record, search) {
 
     if (success.length > 0) {
       success.forEach((stage) => {
-        var stageRecord = record.load({
-          type: 'customrecord_accessory_staging',
-          id: stage.id,
-          isDynamic: true,
-        })
-
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_status',
-          value: 5,
-        })
-
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_date_process',
-          value: new Date(),
-        })
-
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_rel_trans',
-          value: stage.data.tranId,
-        })
-
-        if (stage.data.soId) {
-          stageRecord.setValue({
-            fieldId: 'custrecord_stg_sales_order',
-            value: stage.data.soId,
-          })
-        }
-
-        stageRecord.save()
+        updateStagingRecord(stage, 5, null)
       })
     }
 
     if (failure.length > 0) {
       failure.forEach((stage) => {
-        var stageRecord = record.load({
-          type: 'customrecord_accessory_staging',
-          id: stage.id,
-          isDynamic: true,
-        })
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_status',
-          value: 6,
-        })
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_date_process',
-          value: new Date(),
-        })
-        if (stage.data.soId) {
-          stageRecord.setValue({
-            fieldId: 'custrecord_stg_sales_order',
-            value: stage.data.soId,
-          })
-        }
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_errors',
-          value: JSON.stringify(stage.errors),
-        })
-        stageRecord.save()
+        updateStagingRecord(stage, 6, stage.errors)
       })
     }
 
     if (isManualActionRequired.length > 0) {
       isManualActionRequired.forEach((stage) => {
-        var stageRecord = record.load({
-          type: 'customrecord_accessory_staging',
-          id: stage.id,
-          isDynamic: true,
-        })
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_status',
-          value: 3,
-        })
-        if (stage.data.soId) {
-          stageRecord.setValue({
-            fieldId: 'custrecord_stg_sales_order',
-            value: stage.data.soId,
-          })
-        }
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_date_process',
-          value: new Date(),
-        })
-        stageRecord.save()
+        updateStagingRecord(stage, 3, null)
       })
     }
 
     if (isNoActionRequired.length > 0) {
       isNoActionRequired.forEach((stage) => {
-        var stageRecord = record.load({
-          type: 'customrecord_accessory_staging',
-          id: stage.id,
-          isDynamic: true,
-        })
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_status',
-          value: 4,
-        })
-        if (stage.data.soId) {
-          stageRecord.setValue({
-            fieldId: 'custrecord_stg_sales_order',
-            value: stage.data.soId,
-          })
-        }
-        stageRecord.setValue({
-          fieldId: 'custrecord_stg_date_process',
-          value: new Date(),
-        })
-        stageRecord.save()
+        updateStagingRecord(stage, 4, null)
       })
     }
+  }
+
+  const updateStagingRecord = (stage, status, errors) => {
+    const stageRecord = record.load({
+      type: 'customrecord_accessory_staging',
+      id: stage.id,
+      isDynamic: true,
+    })
+
+    stageRecord.setValue({
+      fieldId: 'custrecord_stg_status',
+      value: status,
+    })
+
+    stageRecord.setValue({
+      fieldId: 'custrecord_stg_date_process',
+      value: new Date(),
+    })
+
+    if (errors) {
+      stageRecord.setValue({
+        fieldId: 'custrecord_stg_errors',
+        value: JSON.stringify(errors),
+      })
+    }
+
+    if (stage.data.soId) {
+      stageRecord.setValue({
+        fieldId: 'custrecord_stg_sales_order',
+        value: stage.data.soId,
+      })
+    }
+
+    stageRecord.save()
   }
 
   return {
