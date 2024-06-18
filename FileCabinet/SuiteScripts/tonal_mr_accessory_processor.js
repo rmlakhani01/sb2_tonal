@@ -765,6 +765,13 @@ define(['N/record', 'N/search'], function (record, search) {
       })
     }
 
+    if (stage.data.tranId) {
+      stageRecord.setValue({
+        fieldId: 'custrecord_stg_rel_trans',
+        value: stage.data.tranId,
+      })
+    }
+
     stageRecord.save()
   }
 
