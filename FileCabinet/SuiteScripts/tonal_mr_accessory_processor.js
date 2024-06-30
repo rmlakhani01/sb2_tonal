@@ -409,6 +409,13 @@ define(['N/record', 'N/search'], function (record, search) {
                 line: i,
               }),
             ),
+            qtyFilled: parseInt(
+              salesOrder.getSublistValue({
+                sublistId: 'item',
+                fieldId: 'quantityfulfilled',
+                line: i,
+              }),
+            ),
           })
         }
 
@@ -466,7 +473,7 @@ define(['N/record', 'N/search'], function (record, search) {
         },
         {
           name: 'EXT_WEST',
-          id: 16,
+          id: 17,
         },
       ]
 
