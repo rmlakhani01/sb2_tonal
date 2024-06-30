@@ -573,6 +573,11 @@ define(['N/record', 'N/search'], function (record, search) {
             fieldId: 'location',
             value: order.location,
           })
+          fulfillmentRec.setCurrentSublistValue({
+            sublistId: 'item',
+            fieldId: 'quantity',
+            value: parseInt(line.qty),
+          })
           fulfillmentRec.commitLine({ sublistId: 'item' })
         }
       })
